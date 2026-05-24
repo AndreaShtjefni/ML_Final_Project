@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 
 H1, H2 = 128, 64
-N_IN, N_OUT = 12, 2
+N_IN, N_OUT = 11, 2
 
 
 # ── Forward pass ────────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ def forward(x: np.ndarray, w: dict) -> np.ndarray:
     """Compute the forward pass.
 
     Args:
-        x: shape (N, 12) or (12,). Normalized inputs.
+        x: shape (N, 11) or (11,). Normalized inputs.
         w: dict with keys W1, b1, W2, b2, W3, b3.
 
     Returns:

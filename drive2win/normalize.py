@@ -14,13 +14,11 @@ import numpy as np
 
 # ── Constants ────────────────────────────────────────────────────────────
 SPD_MAX = 25.0      # speed clip (m/s) — raised from 20; observed max was 22.88
-DIST_MAX = 70.0     # checkpoint-distance clip (m) — lowered from 100; observed max ~61m
 RAY_MAX = 50.0      # raycast clip (m); matches RAYCAST_MAX_RANGE in SensorSystem.ts
 
 FEATURE_NAMES = [
     "speed",
     "heading_error",
-    "checkpoint_distance",
     "ray_0_front",
     "ray_1_+45",
     "ray_2_+90",
@@ -32,7 +30,7 @@ FEATURE_NAMES = [
     "ground_friction",
 ]
 ACTION_NAMES = ["throttle", "steering"]
-N_FEATURES = 12
+N_FEATURES = 11
 N_ACTIONS = 2
 
 
@@ -40,7 +38,9 @@ def normalize_states(states_raw: np.ndarray) -> np.ndarray:
     """Map raw sensor readings into roughly [-1, 1].
 
     Args:
-        states_raw: shape (N, 12). Columns in FEATURE_NAMES order.
+        states_raw: shape (N, 11). Columns in FEATURE_NAMES order.
+        Note: checkpoint_distance has been removed — it caused the model to
+        freeze at every checkpoint transition (out-of-distribution input jump).
 
     Returns:
         float32 array of the same shape, scaled to [-1, 1] (or [0, 1] for
@@ -49,23 +49,21 @@ def normalize_states(states_raw: np.ndarray) -> np.ndarray:
     s = np.asarray(states_raw, dtype=np.float32).copy()
     s[:, 0] = np.clip(s[:, 0] / SPD_MAX, -1.0, 1.0)         # speed
     s[:, 1] = np.clip(s[:, 1] / np.pi, -1.0, 1.0)           # heading_error
-    s[:, 2] = np.clip(s[:, 2] / DIST_MAX, 0.0, 1.0)         # ckpt distance
-    s[:, 3:11] = np.clip(s[:, 3:11] / RAY_MAX, 0.0, 1.0)    # 8 rays
-    s[:, 11] = np.clip(s[:, 11], 0.0, 1.0)                  # friction — clip to [0,1]; raw can exceed 1.0
+    s[:, 2:10] = np.clip(s[:, 2:10] / RAY_MAX, 0.0, 1.0)    # 8 rays
+    s[:, 10] = np.clip(s[:, 10], 0.0, 1.0)                  # friction — clip to [0,1]; raw can exceed 1.0
     return s
 
 
 def sensors_to_input(sensors: dict) -> np.ndarray:
     """Convert a live sensor dict (from `client.get_sensors()` or the WS
-    `state['sensors']`) to the normalized 12-vector the network expects.
+    `state['sensors']`) to the normalized 11-vector the network expects.
 
-    Returns shape (12,), float32.
+    Returns shape (11,), float32.
     """
     raw = np.array(
         [
             sensors["speed"],
             sensors["heading_error"],
-            sensors["checkpoint_distance"],
             *sensors["rays"],
             sensors["ground_friction"],
         ],
