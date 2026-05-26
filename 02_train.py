@@ -109,6 +109,23 @@ def train(X, Y, epochs=300, lr=1e-3, batch_size=64, val_frac=0.1, seed=0):
     val_idx, tr_idx = perm[:n_val], perm[n_val:]
     Xtr, Ytr, Xva, Yva = X[tr_idx], Y[tr_idx], X[val_idx], Y[val_idx]
 
+    # Left/right flip augmentation — doubles training data for free.
+    # A car turning right with rays [A,B,C,D,E,F,G,H] should turn left at the
+    # same magnitude when the car is mirrored. Swap symmetric ray pairs and
+    # negate heading_error + steering. Applied to training only, never val.
+    # Column layout after checkpoint_distance drop:
+    #   0=speed, 1=heading_error, 2=front, 3=+45, 4=+90, 5=+135,
+    #   6=back, 7=-135, 8=-90, 9=-45, 10=friction
+    Xflip = Xtr.copy()
+    Xflip[:, 1] = -Xtr[:, 1]                                        # negate heading_error
+    Xflip[:, 3], Xflip[:, 9] = Xtr[:, 9].copy(), Xtr[:, 3].copy()  # +45 <-> -45
+    Xflip[:, 4], Xflip[:, 8] = Xtr[:, 8].copy(), Xtr[:, 4].copy()  # +90 <-> -90
+    Xflip[:, 5], Xflip[:, 7] = Xtr[:, 7].copy(), Xtr[:, 5].copy()  # +135 <-> -135
+    Yflip = Ytr.copy()
+    Yflip[:, 1] = -Ytr[:, 1]                                        # negate steering
+    Xtr = np.concatenate([Xtr, Xflip], axis=0)
+    Ytr = np.concatenate([Ytr, Yflip], axis=0)
+
     w = nn_mod.init_weights(seed=seed)
     state = nn_mod.init_adam(w)
     train_losses, val_losses = [], []
@@ -123,7 +140,8 @@ def train(X, Y, epochs=300, lr=1e-3, batch_size=64, val_frac=0.1, seed=0):
             cache = nn_mod.forward_all(xb, w)
             ep_loss += nn_mod.mse_loss(cache["y"], yb); n_b += 1
             grads = my_backward(xb, yb, w, cache)
-            nn_mod.adam_step(w, grads, state, lr=lr)
+            current_lr = lr if epoch < epochs // 2 else lr * 0.1
+            nn_mod.adam_step(w, grads, state, lr=current_lr)
         v = nn_mod.mse_loss(nn_mod.forward(Xva, w), Yva)
         train_losses.append(ep_loss / max(1, n_b)); val_losses.append(v)
         if v < best_val:
