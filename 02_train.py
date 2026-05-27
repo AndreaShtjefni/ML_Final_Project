@@ -105,8 +105,21 @@ def inspect_dataset(states_raw, actions, tag: str):
 def train(X, Y, epochs=300, lr=1e-3, batch_size=64, val_frac=0.1, seed=0):
     rng = np.random.default_rng(seed)
     N = len(X)
-    perm = rng.permutation(N); n_val = max(1, int(N * val_frac))
-    val_idx, tr_idx = perm[:n_val], perm[n_val:]
+
+    # Stratified train/val split — ensures validation covers all track zones,
+    # not just early checkpoints. Splits by front-ray quartile as a proxy for
+    # track position (open road vs tight obstacle zones).
+    quartiles = np.percentile(X[:, 2], [25, 50, 75])
+    strata = np.digitize(X[:, 2], quartiles)
+    val_idx = []
+    for s in np.unique(strata):
+        s_idx = np.where(strata == s)[0]
+        rng_s = np.random.default_rng(seed + int(s))
+        rng_s.shuffle(s_idx)
+        n_take = max(1, int(len(s_idx) * val_frac))
+        val_idx.extend(s_idx[:n_take].tolist())
+    val_idx = np.array(val_idx)
+    tr_idx = np.setdiff1d(np.arange(N), val_idx)
     Xtr, Ytr, Xva, Yva = X[tr_idx], Y[tr_idx], X[val_idx], Y[val_idx]
 
     # Left/right flip augmentation — doubles training data for free.
@@ -125,6 +138,16 @@ def train(X, Y, epochs=300, lr=1e-3, batch_size=64, val_frac=0.1, seed=0):
     Yflip[:, 1] = -Ytr[:, 1]                                        # negate steering
     Xtr = np.concatenate([Xtr, Xflip], axis=0)
     Ytr = np.concatenate([Ytr, Yflip], axis=0)
+
+    # Obstacle zone oversampling — frames where front ray < 0.3 (normalized, ~15m)
+    # are the exact failure point (cp2->cp3 obstacle cluster). Oversample 3x so the
+    # network sees more examples of the hard-left arc maneuver during each epoch.
+    obstacle_mask = Xtr[:, 2] < 0.3
+    n_obstacle = obstacle_mask.sum()
+    if n_obstacle > 0:
+        Xtr = np.concatenate([Xtr, Xtr[obstacle_mask], Xtr[obstacle_mask]], axis=0)
+        Ytr = np.concatenate([Ytr, Ytr[obstacle_mask], Ytr[obstacle_mask]], axis=0)
+        print(f"obstacle oversampling: {n_obstacle} frames x3 added to training")
 
     w = nn_mod.init_weights(seed=seed)
     state = nn_mod.init_adam(w)
@@ -160,7 +183,7 @@ def main():
                     help="Output suffix (nav_<tag>.npz, fig_*_<tag>.png)")
     ap.add_argument("--epochs", type=int, default=300)
     ap.add_argument("--lr", type=float, default=1e-3)
-    ap.add_argument("--batch", type=int, default=64)
+    ap.add_argument("--batch", type=int, default=128)
     args = ap.parse_args()
 
     d = np.load(args.data, allow_pickle=False)
