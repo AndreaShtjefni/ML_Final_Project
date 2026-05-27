@@ -1,4 +1,4 @@
-"""Combine three v5 data files and filter dead frames.
+"""Combine three v6 data files and filter dead frames.
 
 A dead frame is one where the human was idle:
   abs(throttle) < 0.05 AND abs(steering) < 0.05
@@ -8,13 +8,13 @@ This script removes them automatically.
 """
 import numpy as np
 
-d1 = np.load('data_v5a.npz')
-d2 = np.load('data_v5b.npz')
-d3 = np.load('data_v5c.npz')
+d1 = np.load('data_v6a.npz')
+d2 = np.load('data_v6b.npz')
+d3 = np.load('data_v6c.npz')
 
-print(f"v5a samples: {d1['states'].shape[0]}")
-print(f"v5b samples: {d2['states'].shape[0]}")
-print(f"v5c samples: {d3['states'].shape[0]}")
+print(f"v6a samples: {d1['states'].shape[0]}")
+print(f"v6b samples: {d2['states'].shape[0]}")
+print(f"v6c samples: {d3['states'].shape[0]}")
 
 combined_states   = np.vstack([d1['states'],    d2['states'],    d3['states']])
 combined_actions  = np.vstack([d1['actions'],   d2['actions'],   d3['actions']])
@@ -32,10 +32,10 @@ combined_actions  = combined_actions[~dead]
 
 print(f"Combined after filter:  {combined_states.shape[0]} samples")
 
-np.savez('data_v5-combined.npz',
+np.savez('data_v6-combined.npz',
          states=combined_states,
          actions=combined_actions,
          positions=combined_positions,
          seed=d1['seed'])
 
-print("Saved data_v5-combined.npz")
+print("Saved data_v6-combined.npz")
