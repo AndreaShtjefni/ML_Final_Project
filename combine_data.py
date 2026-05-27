@@ -1,4 +1,4 @@
-"""Combine four v9 data files and filter dead frames.
+"""Combine three v10 data files and filter dead frames.
 
 A dead frame is one where the human was idle:
   abs(throttle) < 0.05 AND abs(steering) < 0.05
@@ -8,19 +8,17 @@ This script removes them automatically.
 """
 import numpy as np
 
-d1 = np.load('data_v9a.npz')
-d2 = np.load('data_v9b.npz')
-d3 = np.load('data_v9c.npz')
-d4 = np.load('data_v9d.npz')
+d1 = np.load('data_v10a.npz')
+d2 = np.load('data_v10b.npz')
+d3 = np.load('data_v10c.npz')
 
-print(f"v9a samples: {d1['states'].shape[0]}")
-print(f"v9b samples: {d2['states'].shape[0]}")
-print(f"v9c samples: {d3['states'].shape[0]}")
-print(f"v9d samples: {d4['states'].shape[0]}")
+print(f"v10a samples: {d1['states'].shape[0]}")
+print(f"v10b samples: {d2['states'].shape[0]}")
+print(f"v10c samples: {d3['states'].shape[0]}")
 
-combined_states   = np.vstack([d1['states'],    d2['states'],    d3['states'],    d4['states']])
-combined_actions  = np.vstack([d1['actions'],   d2['actions'],   d3['actions'],   d4['actions']])
-combined_positions = np.vstack([d1['positions'], d2['positions'], d3['positions'], d4['positions']])
+combined_states   = np.vstack([d1['states'],    d2['states'],    d3['states']])
+combined_actions  = np.vstack([d1['actions'],   d2['actions'],   d3['actions']])
+combined_positions = np.vstack([d1['positions'], d2['positions'], d3['positions']])
 
 print(f"Combined before filter: {combined_states.shape[0]} samples")
 
@@ -34,10 +32,10 @@ combined_actions  = combined_actions[~dead]
 
 print(f"Combined after filter:  {combined_states.shape[0]} samples")
 
-np.savez('data_v9-combined.npz',
+np.savez('data_v10-combined.npz',
          states=combined_states,
          actions=combined_actions,
          positions=combined_positions,
          seed=d1['seed'])
 
-print("Saved data_v9-combined.npz")
+print("Saved data_v10-combined.npz")

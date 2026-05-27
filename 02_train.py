@@ -139,15 +139,6 @@ def train(X, Y, epochs=300, lr=1e-3, batch_size=64, val_frac=0.1, seed=0):
     Xtr = np.concatenate([Xtr, Xflip], axis=0)
     Ytr = np.concatenate([Ytr, Yflip], axis=0)
 
-    # Obstacle zone oversampling — frames where front ray < 0.3 (normalized, ~15m)
-    # are the exact failure point (cp2->cp3 obstacle cluster). Oversample 3x so the
-    # network sees more examples of the hard-left arc maneuver during each epoch.
-    obstacle_mask = Xtr[:, 2] < 0.3
-    n_obstacle = obstacle_mask.sum()
-    if n_obstacle > 0:
-        Xtr = np.concatenate([Xtr, Xtr[obstacle_mask], Xtr[obstacle_mask]], axis=0)
-        Ytr = np.concatenate([Ytr, Ytr[obstacle_mask], Ytr[obstacle_mask]], axis=0)
-        print(f"obstacle oversampling: {n_obstacle} frames x3 added to training")
 
     w = nn_mod.init_weights(seed=seed)
     state = nn_mod.init_adam(w)
